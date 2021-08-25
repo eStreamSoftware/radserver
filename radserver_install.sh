@@ -4,15 +4,18 @@ if [ `whoami` != root ]; then
 	exit
 fi
 
+[ -f "/etc/os-release" ] && . /etc/os-release && [ "$ID" = "debian" ] && isDebian=true
+
 #------SILENT INSTALL---------
 if [ "$#" -gt 0 ]; then
 	if [ "$1" = "-silent" ]; then
-		if [  -n "$(uname -a | grep Ubuntu)" ]; then
-			ctl=`find / -name apachectl`
+		if [  -n "$(uname -a | grep Ubuntu)" ] || [ $isDebian ]; then
+			apt-get -qq update
+			ctl=`which apachectl`
 			if [ "$ctl" = "" ]; then
-				apt-get -qq update
 				apt-get -qq install apache2
 			fi
+			apt-get -qq install curl
 		else
 			# check for centos/redhat release 7
 			if rpm -qf /etc/redhat-release | grep -q release-7; then
@@ -81,13 +84,13 @@ compactbutton=black,lightgray
 '
 
 #-------INSTALL REQUIREMENTS--------
-if [  -n "$(uname -a | grep Ubuntu)" ]; then
+if [  -n "$(uname -a | grep Ubuntu)" ] || [ $isDebian ]; then
+	apt-get -qq update
 	if [ ! -e "/usr/bin/unzip" ]; then
-		apt-get -qq update
 		apt-get -qq install unzip
 	fi
 	#ubuntu check if apachectl exists ask if user wants to install
-	ctl=`find / -name apachectl`
+	ctl=`which apachectl`
 	if [ "$ctl" = "" ]; then
 		installApache=$(whiptail --title "RAD Server Production Installation" \
 						--backtitle "Copyright 2019 Embarcadero Technologies" \
@@ -95,10 +98,10 @@ if [  -n "$(uname -a | grep Ubuntu)" ]; then
 						3>&1 1>&2 2>&3)
 		exitstatus=$?
 		if [ $exitstatus = 0 ]; then
-			apt-get -qq update
 			apt-get -qq install apache2
 		fi
 	fi
+	apt-get -qq install curl
 else
 	# check for centos/redhat release 7
 	if rpm -qf /etc/redhat-release | grep -q release-7; then
