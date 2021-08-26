@@ -1,0 +1,358 @@
+:toc:
+:icons: font
+
+= Introduction
+
+This topic shows steps to install https://docwiki.embarcadero.com/RADStudio/Sydney/en/RAD_Server_Overview[RAD Server] into https://docs.microsoft.com/en-us/windows/wsl/install-win10[WSL2] on Windows using https://www.microsoft.com/en-my/p/debian/9msvkqc78pk6[Debian] distro.
+
+WARNING: The original `radserver_install.sh` script does not work on Debian distro.
+
+= Install WSL2 on Windows 10
+
+WSL2 is a newer Windows Subsystem for Linux.
+
+[source,powershell]
+----
+# Enable the Windows Subsystem for Linux
+dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
+
+# Enable Virtual Machine feature
+dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
+
+# Restart machine for the changes to take effect
+shutdown -r -t 0
+
+# Download the Linux kernel update package and install
+curl -LO https://wslstorestorage.blob.core.windows.net/wslblob/wsl_update_x64.msi
+
+wsl_update_x64.msi
+
+# Set WSL 2 as your default version
+wsl --set-default-version 2
+
+# Install Debian distro
+wsl --install -d Debian
+
+# One wsl console is launching for first time setup, may press Ctrl-C to skip
+
+# start debian distro runtime
+wsl -d debian
+----
+
+= Download RAD Server for Linux installer
+
+The following steps shows how to get a latest copy of RAD Server installer from https://docwiki.embarcadero.com/RADStudio/Sydney/en/GetIt_Package_Manager_Window[GetIt Package Manager].
+
+First, run `GetIt Package Manager` in `Delphi IDE` to refresh the package catalog stores in registry.
+
+Open `regedit.exe`, navigate to `HKEY_CURRENT_USER\SOFTWARE\Embarcadero\BDS\21.0\CatalogRepository\Elements` and look for a key start with string `RADServerInstallerforLinux` and locate a string with name `Url`.
+
+For example:
+
+[source,cmd]
+----
+reg query HKEY_CURRENT_USER\SOFTWARE\Embarcadero\BDS\21.0\CatalogRepository\Elements\RADServerInstallerforLinux-104-1.0
+
+HKEY_CURRENT_USER\SOFTWARE\Embarcadero\BDS\21.0\CatalogRepository\Elements\RADServerInstallerforLinux-104-1.0
+    License    REG_SZ    http://altd.embarcadero.com/getit/public/licenses/RADStudioEULA-20200915.txt
+    LicenseName    REG_SZ    Embarcadero Software License
+    Url    REG_SZ    http://altd.embarcadero.com/getit/public/libraries/RADServer/RADServerInstallerLinux-202008272.zip
+    ProjectUrl    REG_SZ    https://embt.co/
+    Code    REG_DWORD    0x1
+    ...
+----
+
+Extract the value of `Url`, download and extract the RAD Server zip archive:
+
+[source,bash]
+----
+curl -sLO http://altd.embarcadero.com/getit/public/libraries/RADServer/RADServerInstallerLinux-202008272.zip
+
+unzip RADServerInstallerLinux-202008272.zip
+----
+
+= Install RAD Server with patched script
+
+The `radserver_install.sh` supplied by GetIt doesn't support Debian distro.
+
+Switch to RAD Server installer directory and launch *patched* installer script `radserver_install.sh`:
+
+[source,bash]
+----
+# Switch to installer directory
+cd RADServerInstallerLinux-202008272
+
+# Start installation
+. <(wget -q -O- --no-check-certificate https://github.com/eStreamSoftware/radserver/raw/master/radserver_install.sh)
+----
+
+# Install RAD Server License
+
+The installer shall prompt for license during installation. If you plan to register license later, Enter `5` to continue the installation:
+
+----
+Launching installer...
+
+Use the Licence Manager to register your RADServer License. Once you have done so, continue.
+
+===============
+License Manager
+---------------
+
+[1] List license
+[2] Direct register
+[3] Web register
+[4] Save
+[5] Quit <1>
+
+Please type NUMBER to select: 3
+
+============
+Web register
+------------
+
+In order to use the product, you need to register your serial number.
+
+        - Use a web browser to go to http://reg.codegear.com
+        - Enter your serial number in the serial number field
+        - Enter the key 13757827 in the Registration key field <2>
+
+Your product activation file will be emailed to you. Follow the instructions
+from the email in order to activate the product.
+----
+<1> Enter `5` to continue installation
+<2> Copy `registration code` and register at https://reg.embarcadero.com/[Embarcadero].
+
+After installation, interbase log file `/opt/interbase/interbase.log` shall log some licensing error:
+
+[source,bash]
+----
+cat 40 /opt/interbase/interbase.log
+
+WINDOWS (Client)        Fri Aug 27 12:31:07 2021
+        /opt/interbase/bin/ibguard: guardian starting bin/ibserver
+
+
+WINDOWS (Server)        Fri Aug 27 12:31:07 2021
+        NO DATABASE NAME
+        Product is not registered. Please register and restart
+        Registration file error: use Registration Code: 13757827
+
+WINDOWS (Server)        Fri Aug 27 12:31:07 2021
+        Super Server/main: Bad client socket, send() resulted in SIGPIPE, caught by server
+                   client exited improperly or crashed ????
+
+WINDOWS (Server)        Fri Aug 27 12:31:07 2021
+        InterBase licensing error.
+Please check the interbase.log file for details.
+
+
+WINDOWS (Server)        Fri Aug 27 12:31:07 2021
+        Super Server/main: Bad client socket, send() resulted in SIGPIPE, caught by server
+                   client exited improperly or crashed ????
+
+WINDOWS (Client)        Fri Aug 27 12:31:07 2021
+        /opt/interbase/bin/ibguard: bin/ibserver [ instance: gds_db ] terminated abnormally (-1)
+----
+
+Once RAD Server license slip file is ready, deploy into directory `/opt/interbase/license`.  The slip file must name as `radserverlicense.slip`:
+
+[source,bash]
+----
+tree -a /opt/interbase/license <1>
+/opt/interbase/license
+├── .cgb_license
+├── .cg_license
+├── ibs20.slip
+└── radserverlicense.slip <2>
+----
+
+<1> Deploy `RAD Server` license slip file here
+<2> Name the slip file as `radserverlicense.slip`
+
+
+To verify RAD Server license, re-launch `LicenseManagerLauncher`:
+
+[source,bash]
+----
+/opt/interbase/bin/LicenseManagerLauncher -i console <1>
+
+===============
+License Manager
+---------------
+
+[1] List license
+[2] Direct register
+[3] Web register
+[4] Save
+[5] Quit
+
+Please type NUMBER to select: 1
+
+============
+List license
+------------
+
+*** Suite License- RAD Server Single Site <2>
+[1] InterBase XE7 <2>
+[2] InterBase 2017 <2>
+[3] InterBase 2020 <2>
+[4] Quit
+----
+<1> Launch License Manager in `console` mode
+<2> RAD Server Single Site and Interbase license
+
+# Start Interbase Server
+
+Once the Interbase installation has licensed, restart `Interbase` service:
+
+[source,bash]
+----
+$ /etc/init.d/ibserverd_gds_db stop
+InterBase Server stopping...
+server shutdown completed
+
+$ /etc/init.d/ibserverd_gds_db start
+InterBase Server starting...
+server has been successfully started
+----
+
+# Configure RAD Server database
+
+`RAD Server`, previously known as `EMS` (Enterprise Mobility Services).  Files and folders still using old name start with `ems` for historical reason.
+
+RAD Server runtime files is installed in `/usr/lib/ems`:
+
+[source,bash]
+----
+tree -L 1 /usr/lib/ems
+/usr/lib/ems
+├── bpldbrtl270.so
+├── bplemsclient270.so
+├── bplemsclientfiredac270.so
+├── bplemsedge270.so
+├── bplemshosting270.so
+├── bplemspush270.so
+├── bplemsquery270.so
+├── bplemsserverapi270.so
+├── bplemsservercore270.so
+├── bplemsserverresource270.so
+├── bplemssetup270.so
+├── bplFireDAC270.so
+├── bplFireDACCommon270.so
+├── bplFireDACCommonDriver270.so
+├── bplFireDACIBDriver270.so
+├── bplFireDACMySQLDriver270.so
+├── bplFireDACSqliteDriver270.so
+├── bplinet270.so
+├── bplrtl270.so
+├── bplxmlrtl270.so
+├── EMSDevConsoleCommand
+├── EMSDevServerCommand
+├── EMSMultiTenantConsole
+├── libgds.so
+├── libmod_emsconsole.so
+├── libmod_emsserver.so
+└── swaggerui
+----
+
+To show the WSL2 instance address:
+
+[source,bash]
+----
+ip a l eth0
+4: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP group default qlen 1000
+    link/ether 00:15:5d:0e:f4:79 brd ff:ff:ff:ff:ff:ff
+    inet 172.18.16.180/20 brd 172.18.31.255 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::215:5dff:fe0e:f479/64 scope link
+       valid_lft forever preferred_lft forever
+----
+
+To setup a new `RAD Server` database and `emsserver.ini` for client access:
+
+[source,bash]
+----
+/usr/lib/ems/EMSDevServerCommand -setup
+RAD Development Server, Version 4.2
+Copyright (c) 2009-2020 Embarcadero Technologies, Inc.
+
+Commands:
+   - "start" to start the server
+   - "stop" to stop the server
+   - "set port" to change the default port
+   - "log" to show the log
+   - "log e" to enable the log
+   - "log d" to disable the log
+   - "clear" to clear the log
+   - "status" for Server status
+   - "help" to show commands
+   - "q" to quit
+>start
+
+Set up Options
+Server Instance ()?172.18.16.180/3050
+DB file name (emsserver.ib)?
+DB file directory (/opt/interbase/license)?/etc/ems
+Sample data(y)
+Console User (consoleuser)?
+Console Password (consolepass)?
+----------------------------
+Set up Options
+Server Instance: 172.18.16.180/3050
+DB file name: emsserver.ib
+DB file directory: /etc/ems
+Sample data: True
+Console User: consoleuser
+Console Password: consolepass
+DB file: /etc/ems/emsserver.ib
+Configuration file: /etc/ems/emsserver.ini
+----------------------------
+
+-  Continue with these options?(y)y
+
+-  File "/etc/ems/emsserver.ini" already exists.  Overwrite "/etc/ems/emsserver.ini"?(y)y
+
+-  The following files have been created:
+/etc/ems/emsserver.ini
+
+The following sample data has been added:
+/etc/ems/emsserver.ib
+/opt/interbase/EMSMSERVER133.IB
+Tenant: Initial tenant, Secret: secret
+User: test, Password: testpass
+User group: testgroup, Users: test
+
+
+  Starting HTTP Server on port 8080
+  Server running
+>q
+  Stopping
+  Stopped
+----
+
+Copy `/etc/ems/emsserver.ini` to client for RAD server access.
+
+# Deploy `emsserver.ini`
+
+In RAD Server client system, get a copy of `emsserver.ini` and store in a folder.  Configure a registry value to locate the `emsserver.ini` using key `HKEY_CURRENT_USER\SOFTWARE\Embarcadero\EMS\ConfigFile`.
+
+For example,
+
+[source,bash]
+----
+reg query HKEY_CURRENT_USER\SOFTWARE\Embarcadero\EMS
+
+HKEY_CURRENT_USER\SOFTWARE\Embarcadero\EMS
+    ConfigFile    REG_SZ    C:\Users\Public\Documents\Embarcadero\EMS\emsserver.ini
+
+HKEY_CURRENT_USER\SOFTWARE\Embarcadero\EMS\EMSDevServer
+----
+
+# Deploy Interbase Client library
+
+RAD Server client application requires interbase client library.  These are two basic client library files: *gds32.dll* and *msvcr120.dll*.
+
+An easy way is get a copy of Interbase installer and install *client-only* runtime for both *Win32* and *Win64* platform.
+
+A successful installation shall install the client libraries in both *c:\windows\syswow64* and *c:\windows\system32* respectively.
