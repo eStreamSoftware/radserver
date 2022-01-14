@@ -33,10 +33,28 @@ wsl --set-default-version 2
 # Install Debian distro
 wsl --install -d Debian
 
-# One wsl console is launching for first time setup, may press Ctrl-C to skip
+# Once wsl console is launching for first time setup, may press Ctrl-C to skip
+Installing, this may take a few minutes...
+Please create a default UNIX user account. The username does not need to match your Windows username.
+For more information visit: https://aka.ms/wslusers
+Enter new UNIX username: manager
+New password:
+Retype new password:
+passwd: password updated successfully
+Installation successful!
 
 # start debian distro runtime
 wsl -d debian
+
+# Get into wsl shell
+:/$
+
+# Update and upgrade packages
+:/$ sudo apt update
+:/$ sudo apt upgrade -y
+
+# Install some packages
+:/$ sudo apt install -y curl wget
 ----
 
 = Download RAD Server for Linux installer
